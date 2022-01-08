@@ -2,52 +2,12 @@
 """
 Created on Jan 1 01:25:53 2022
 @author: ASUS
-"""
-
-"""
-
-    Production产生式存放：
-        A->a | b
-        {A:['a','b']}
-    
-    firstset集存在,follow集同理
-    first(A) = (a,b),则{'A':[a,b]}
-    
-    table表（M表）例如：M[A,(] = "A->(abc"
-    {'A':{'(':["A->(abc"]}}
-  
-    测试样例
-    S->Qc|c
-    Q->Rb|b
-    R->Sa|a
-
-    S->S+S|S-S|S*S|S/S| (S) | I
-
-    S->TS'
-    S'->+TS'|ε
-    T->FT'
-    T'->*FT'|ε
-    F->(S)|i
-
-    A->ab1 | ab2 | Dc | Ac |Acc  ==>消除左递归新生成的生成式，还有可能存在最左公因子
-    D->ad                             #消除所以消除左递归新的终结符为A',最左公因子用A''
-    
-
-    A->aB|abD|abDE ==》这种情况公因子怎么提取。。
-
-    S->ac|abd|cc|cce
-
-    S->LA
-    L->i:|ε
-    A->i=e
-    
-    注：本分析器接收的文法开始符强制要求为S
-
+注：本分析器接收的文法开始符号强制要求为S
 """
 
 import tkinter
 import tkinter.filedialog
-import tkinter.ttk     
+import tkinter.ttk
     
 class LL1:
     def __init__(self, Tset, NTset, S, Production, firstset, followset, Table,work_process):
@@ -59,25 +19,103 @@ class LL1:
         self.followset = followset
         self.Table = Table
         self.work_process=work_process
-        
-        '''
-        终结符（Tset），非终结符（NTset），文法开始符（S）(需要注意的是，本次实验必须要求文法开始符是字符S), 
-        产生式（Production）, FIRST集（firstset），FOLLOW集（followset）, LL(1)分析表（Table）
-        各个参数的数据存放形式：
-        Tset：[]列表
-        NTset:[]列表
-        S: 'S' 字符串
-        Production:{},例如：A->aA|b, 就是表示为{'A': ["aA","b"]}
-        firstset: {}, 例如：fisrt(A):(a,b),就是表示为{‘A’:["a","b"]}
-        followset:{},同firstset一样
-        Table:{}嵌套字典，例如：M[A,a] = (A->a)，那么就是表示为{'A':{'a':['A->a']}}
-        '''
-    
+
     #消除形如S->S,或者无法到达终态的，或者无法被到达的状态的产生式
     def removeUselessAndHarmful(self):
-        pass
-    
-    # 消除一切左递归
+        Tset = self.Tset
+        NTset = self.NTset
+        production=self.Production
+        
+        #消除形如S->S的产生式
+        for item in production.keys():
+            #print(len(production[item]))
+            if len(production[item])==0:
+                #raise RuntimeError('产生式集出错')
+                tkinter.messagebox.showerror('错误','扫描到空的产生式，已经删除')
+                self.work_process.append('扫描产生式时发现错误')
+                production.pop(item)
+                
+            elif len(production[item])==1:#值列表长为1且键值对内容一致，删除
+                if str(production[item])==str(item):
+                    self.work_process.append('删除无用产生式'+str(production[item]))
+                    production.pop(item)
+                    
+            else:#键值对长度大于等于2时，进行遍历操作查找
+                tempList=[]
+                for datum in production[item]:
+                    
+                    if datum==item:
+                        tempList.append(datum)
+                        
+                production[item]=list(set(tempList) ^ set(production[item]))
+                self.work_process.append('删除无用产生式'+str(tempList))
+                
+        #消除含不可到达的产生式
+        leftNTList=[]
+        rightNTList=[]
+        for item in production.keys():
+            leftNTList.append(item)
+            if len(production[item])==1:
+                #print(len(production[item][0]))
+                if len(production[item][0])==1:
+                    if production[item][0]>='A' and production[item][0]<='U':
+                        rightNTList.append(production[item][0])#值为单独一个且为非终结符时，直接添加值非终结符右值列表中
+                else:
+                    for d in production[item][0]:
+                        if d>='A' and d<='U':
+                            rightNTList.append(d)#值为单独一个且为非终结符时，直接添加值非终结符右值列表中
+                
+            else:
+                for datum in production[item]:#若产生式右边列表有多个元素
+                    for d in datum:
+                        if d>='A' and d<='U':
+                            rightNTList.append(d)
+        #print(leftNTList)
+        #print(rightNTList)
+        #temp=list(set(leftNTList).intersection(set(rightNTList)))
+        
+        for item in rightNTList:
+            if item not in leftNTList:#不在左值列表中，代表该非终结符无法被抵达
+                for key, value in production.items():
+                    if value[0] == item:
+                        item=key
+                self.work_process.append('产生式{}不可达，已弹出'.format(production[item]))
+                production.pop(item)#弹出该产生式
+        #print(production.keys())
+        #print(production.values())
+        
+        #重新扫描得出rightNTset
+        leftNTList=[]
+        rightNTList=[]
+        for item in production.keys():
+            leftNTList.append(item)
+            if len(production[item])==1:
+                if len(production[item][0])==1:
+                    if production[item][0]>='A' and production[item][0]<='U':
+                        rightNTList.append(production[item][0])#值为单独一个且为非终结符时，直接添加值非终结符右值列表中
+                else:
+                    for d in production[item][0]:
+                        if d>='A' and d<='U':
+                            rightNTList.append(d)
+                
+            else:
+                for datum in production[item]:#若产生式右边列表有多个元素
+                    for d in datum:
+                        if d>='A' and d<='U':
+                            rightNTList.append(d)
+        
+        NTset=list(set(leftNTList).union(set(rightNTList)))
+        NTset=list(set(NTset))
+        NTset.remove('S')
+        NTset.append('S') #保证文法开始符在最后，便于消除左递归
+        
+        #重新赋值 相当于return 操作都在函数的副本中 最后赋回比较安全
+        self.Tset = Tset
+        self.NTset = NTset
+        self.Production = production
+        
+        
+    # 消除所有左递归
     def removeLeftRecursion(self):
         i = 1
         while i <= len(self.NTset):
@@ -91,11 +129,11 @@ class LL1:
                 if rmList:
                     addList = [y+x.replace(Aj, "", 1) if y != 'ε' else x.replace(Aj, "", 1)
                                for x in rmList for y in self.Production[Aj]]
-                    # 本来不需要替换的，保留
+                    # 不需替换则保留
                     self.Production[Ai] = list(
                         filter((lambda x: x not in rmList), self.Production[Ai]))
-                    # 追加新替换的式子进来
-                    # extend,append函数没有返回值的，所以不能list().extend()，否则返回None
+                    # 追加新替换式子
+                    # append函数没有返回值，所以不能list().extend()，否则返回None
                     self.Production[Ai].extend(addList)
                 work_process="去除间接左递归"+str(self.Production)
                 self.work_process.append(work_process)#记录工作进程
@@ -117,22 +155,19 @@ class LL1:
                         self.Production[Ai] = [newNT]
                     newList = [
                         x.replace(x[0], '', 1)+newNT for x in LeftRecursionProduction]
-                    newList.append('ε')         # 追加空字，哑f西no
+                    newList.append('ε')         # 追加空串
                     self.Production[newNT] = newList    # 加进产生式的字典中
                 j = j+1
 
             i = i+1
-        """
-        特殊判断，第一个非终结符对应的产生式本身是直接左递归，
-        注意是第一个非终结符，因为上面的两层循环判断了除第一个非终结符的情况了
-        """
+        #特殊情况的判断，第一个非终结符对应的产生式本身是直接左递归，上面的两层循环判断了除第一个非终结符是直接左递归的情况
         LeftRecursionProduction = [
             x for x in self.Production[self.NTset[0]] if x.startswith(self.NTset[0])]
         notLeftRecursionProduction = [
             x for x in self.Production[self.NTset[0]] if not x.startswith(self.NTset[0])]
         if LeftRecursionProduction:
             newNT = 'S'+"'"
-            if newNT not in self.NTset:         # 新的终结符判断是否存在，不存在插入
+            if newNT not in self.NTset:         #新的终结符判断是否已经存在，不存在则插入
                 self.NTset.append(newNT)
             if notLeftRecursionProduction:
                 self.Production['S'] = [
@@ -141,16 +176,11 @@ class LL1:
                 self.Production['S'] = [newNT]
             newList = [x.replace(x[0], '', 1) +
                        newNT for x in LeftRecursionProduction]
-            newList.append('ε')         # 追加空字，哑f西no
-            self.Production[newNT] = newList    # 加进产生式的字典中
+            newList.append('ε')         # 追加空串
+            self.Production[newNT] = newList    # 追加进产生式的字典中
 
-        # 去除多余的生成式,dfs
-        """
-        fromkeys方法注意：
-        如果每个key的value都为同一个对象，
-        则操作该key的value时，所有的key的value都会改变
-        """
-        judge = dict.fromkeys(self.NTset, 0)        # 字典，非终结符做key,0做valu
+        # 去除多余的生成式,使用dfs
+        judge = dict.fromkeys(self.NTset, 0)# 非终结符做key,0做value
         stack = []
         stack.append(self.S)
         judge[self.S] = 1       # 标志为已访问
@@ -168,7 +198,7 @@ class LL1:
                                 ch += "'"
                         if judge[ch] == 0:
                             stack.append(ch)
-                        judge[ch] = 1       # 标志为访问过
+                        judge[ch] = 1       # 标记为访问过的
                     i = i+1
         for key, values in judge.items():
             if values == 0:
@@ -176,11 +206,6 @@ class LL1:
                 self.NTset.remove(key)          # 去除非终结符
 
     # 消除最左公因子
-    """
-    算法思想：将每个非终结符的产生式右部，也就是多个字符串，按照首个字符分类，
-    然后进行转换，新转换生成的新非终结符的产生式更新到self实例中，进行转换。
-    """
-
     def removeLeftCommonFactor(self):
         for item in self.NTset:                 # 遍历每个非终结符的产生式
             diff = {}                           # 将相同首字符的分为一类
@@ -200,13 +225,13 @@ class LL1:
                         if len(v) == 1:         # 提取公因子后为ε
                             newList.append('ε')
                         else:
-                            # 提取非公因子的部分,replace函数需要指定替换的次数，bug error
+                            # 提取非公因子的部分,replace函数需要指定替换的次数
                             newList.append(v.replace(v[0], '', 1))
                     if len(newList) != 0:
                         self.Production[newNt] = newList            # 添加新的产生式右部
                         self.NTset.append(newNt)                    # 添加新的非终结符
                 else:
-                    # 注意这里value为列表，所以value[0]为所求
+                    #这里value为列表，所以value[0]才是所求的
                     oldList.append(value[0])
 
             self.Production[item] = oldList
@@ -216,12 +241,12 @@ class LL1:
             if nt not in self.firstset.keys():
                 self.firstset[nt] = []
             for eachPro in self.Production[nt]:
-                if eachPro[0] in self.Tset or eachPro[0] == 'ε':                          # A->a
+                if eachPro[0] in self.Tset or eachPro[0] == 'ε':# A->a
                     self.firstset[nt].append(eachPro[0])
                     self.firstset[nt] = list(set(self.firstset[nt]))
                 else:                                                # A->B...
                     if eachPro[0] in self.firstset.keys():
-                        # 将Y1集除空字追加到X
+                        # 将Y1集除空串追加到X
                         R_addto_L = [
                             x for x in self.firstset[eachPro[0]] if x != 'ε']
 
@@ -231,7 +256,7 @@ class LL1:
 
                         if 'ε' in self.Production[eachPro[0]]:  # 第一个Y1存在ε
                             after_Y1_str = eachPro[1:]
-                            if not after_Y1_str:    # 为空，即是A->B 这种情况，且B含有空字，需要追加空字
+                            if not after_Y1_str:    # 为空，即是A->B 这种情况，且B含有空串，需要追加空串
                                 self.firstset[nt].append('ε')
                                 self.firstset[nt] = list(
                                     set(self.firstset[nt]))
@@ -243,7 +268,7 @@ class LL1:
                                     else:
                                         break
                                 existNULL_Y = after_Y1_str[0:index]
-                                if len(existNULL_Y) == len(after_Y1_str):       # Y1后面的Y都有空字，加
+                                if len(existNULL_Y) == len(after_Y1_str):       # Y1后面的Y都有空串，将空串加入first集
                                     self.firstset[nt].append('ε')
                                     self.firstset[nt] = list(
                                         set(self.firstset[nt]))
@@ -280,7 +305,7 @@ class LL1:
 
                     if flag and index >= 0:
                         newindex = index + len(nt)-1
-                        if newindex == len(item)-1:  # 非终结符刚刚好在末尾,规则3
+                        if newindex == len(item)-1:  # 非终结符刚刚好在末尾,使用规则3
                             self.followset[nt].extend(self.followset[key])
                             self.followset[nt] = list(set(self.followset[nt]))
 
@@ -301,8 +326,7 @@ class LL1:
                                         break
                                     i = i+1
                                 # 后面是非终结符
-                                # first集去除空字加到follow
-
+                                # first集去除空串加到follow
                                 add_list = [
                                     x for x in self.firstset[nextNT] if x != 'ε']
                                 self.followset[nt].extend(add_list)
@@ -313,21 +337,12 @@ class LL1:
                                         self.followset[key])
                                     self.followset[nt] = list(
                                         set(self.followset[nt]))
-                    # print("{}->{},非终结符为：{}".format(key,item,nt))
-                    # print("规则为：",self.followset)
-        # print("==========", self.followset['S'])
-
+                                    
     def createFollowSet(self):
         for nt in self.NTset:
             self.followset[nt] = []
         self.followset["S"].append('#')
         while True:
-            """            
-            # 判断坑了我5小时。。。
-            # 不能f1 = self.followset 执行函数  f2 = self.followset，
-            # 然后判断f1 == f2？
-            # f1随着self.followset变化而变化？？未解决！
-            """
             size1 = 0
             for item in self.followset.values():
                 size1 += len(item)
@@ -350,12 +365,6 @@ class LL1:
                     self.Table[k].update({ck: value})
                 else:
                     self.Table.update({k: {ck: value}})
-
-        """
-        ERROR fromkeys少用！！
-        # cdict = dict.fromkeys(ckey, [])             # 初始化子字典 一维
-        # self.Table = dict.fromkeys(self.NTset, cdict)    # Table表     二维
-        """
         for key, values in self.firstset.items():
             for value in values:
                 if value != "ε":
@@ -374,7 +383,7 @@ class LL1:
                                 else:
                                     self.Table[key][value].append(str_pro)
                                 break
-                # first集存在空字(产生式中有空字)
+                # first集存在空串(产生式中有空串)
                 else:
                     for k in self.followset[key]:
                         str_pro = "{}->{}".format(key, 'ε')
@@ -391,36 +400,56 @@ def readFile(filename):
     Production = dict()         # 产生式
     
     with open(filename, encoding='utf-8', mode='r') as f:
-        lines = [x.strip() for x in f.readlines() if not x.isspace()]
+        lines = [x.strip() for x in f.readlines() if not x.isspace()]#strip移除字符串头尾的空格
         for line in lines:
             line = line.split('->', 1)              # 分割
-            line = [x.strip() for x in line]        # 去除空白符
-            line[1] = line[1].split('|')            # 分割
+            line = [x.strip() for x in line]        # 去除中间的空白符
+            line[1] = line[1].split('|')            # 分割右部或式
             line[1] = [x.strip() for x in line[1]]
-            if line[0] not in Production.keys():    # 判断非终结符是否存在
+            
+            temp=[x for x in line[1] if len(x)==1 if x>='A' and x<='U' and x!=line[0]]#右部的字母非终结符添加至temp
+            
+            
+            if line[0] not in Production.keys():    # 判断非终结符是否已经在产生式的键中
                 addDict = {line[0]: line[1]}
                 Production.update(addDict)
             else:
-                Production[line[0]].extend(line[1])  # 存在，追加
-            # 11 -> 11|221 产生式
-            # {'11': ['11', '221']}
+                Production[line[0]].extend(line[1])  # 存在的情况下，直接追加value
+                
     NTset = list(set(Production.keys()))            # 字典的key作为非终结符
+    NTset = list(set(NTset).union(set(temp)))
     NTset.remove('S')
-    NTset.append('S')                               # 保证文法开始符在最后，消除左递归方便点
-    # 遍历字典的values，判断每个字符如果不是非终结符，那么就是终结符,使用集合推导式，
+    NTset.append('S')                               # 保证文法开始符在最后，便于消除左递归
+    # 遍历values，对每个字符进行判断，如果不是非终结符，则为终结符,使用集合推导式生成终结符集
     Tset = list(set([c for item in Production.values()
                      for ch in item for c in ch if c not in NTset and c != 'ε' and c != "'"]))
+    
     return Tset, NTset, S, Production
 
+def NTset2Show_form(LB_txt1,x):#将处理后的文法表达式重新刷新显示在文法产生式的框内
+    for item in x.Production.keys():
+        string1=""
+        if len(x.Production[item])==1:
+            string1=x.Production[item][0]
+        else:
+            for datum in x.Production[item]:
+                string1+=datum+' | '
+            string1=string1[:-2]
+        string=str(item)+' -> '+string1
+        LB_txt1.insert(tkinter.END,string)
+        
 def show_info():
     tkinter.messagebox.showinfo('版权及作者信息', 'LL(1)分析器 V1.0.2\nSCNU18级计科 Oliver')
     
-#消除无用规则
+#消除无用规则并刷新文法产生式框
 def btn0(LB_txt1,x):
     LB_txt1.delete(1, tkinter.END)# 清空列表框
     x.removeUselessAndHarmful()
+    NTset2Show_form(LB_txt1,x)
+    print(x.Tset)
+    print(x.NTset)
+    print(x.Production)
     
-
 # “打开文件”按键函数
 def btn1(LB_txt1, x):
     LB_txt1.delete(1, tkinter.END)# 清空列表框
@@ -430,7 +459,10 @@ def btn1(LB_txt1, x):
         lines = f.readlines()
         for line in lines:
             LB_txt1.insert(tkinter.END, line)
-
+    print(x.Tset)
+    print(x.NTset)
+    print(x.Production)
+    
 # “消除左递归”按键函数
 def btn2(LB_txt2, x):
     LB_txt2.delete(1, tkinter.END)
@@ -454,7 +486,7 @@ def btn4(LB_first,x):
     LB_first.delete(1,tkinter.END)
     x.createFirstSet()
     for key,values in x.firstset.items():
-        if key in x.NTset:          # 防止用户没进行消除左递归操作就生成first集
+        if key in x.NTset:          # 防止没进行消除左递归操作就生成first集
             str_firstset_right = ""
             for v in values:
                 str_firstset_right = str_firstset_right + v + ", "
@@ -466,7 +498,7 @@ def btn5(LB_follow,x):
     LB_follow.delete(1,tkinter.END)
     x.createFollowSet()
     for key,values in x.followset.items():
-        if key in x.NTset:          # 防止用户没进行消除左递归,消除左因子操作就生成follow集
+        if key in x.NTset:          # 防止没进行消除左递归,消除左因子操作就生成follow集
             str_followset_right = ""
             for v in values:
                 str_followset_right =  str_followset_right + v + ", "
@@ -475,7 +507,7 @@ def btn5(LB_follow,x):
 
 # 给定输入串，输出该输入串的分析过程
 def is_legal(input_text,x):
-    input_str = input_text.get()  # input_text为输入框对象
+    input_str = input_text.get()
     table_root = tkinter.Tk()
     table_root.title("输入串的判断情况")
     table_root.geometry('1200x500')
@@ -503,12 +535,9 @@ def is_legal(input_text,x):
     stack.append("S")
     input_str += "#"
     i = 0
-    colindex = 0   # gui 表格的行数
+    colindex = 0   # 表格的行数
     a = input_str[i]        # 当前输入符号
     top = stack[len(stack)-1]
-    """
-    str1,str2都是相同的，但是懒得改了...
-    """
     while stack[len(stack)-1] != "#":
         top = stack[len(stack)-1]
         cur_stack_str = "".join(stack)
@@ -530,18 +559,13 @@ def is_legal(input_text,x):
                     insert_tablelist = []
                     str1 = cur_stack_str
                     str2 = a
-                    str3 = input_str[i:]    # 注意这里是i，不是i+1
+                    str3 = input_str[i:]
                     str4 = "匹配，弹出栈顶符号{}并读出输入串的下一个输入符号{}".format(top,input_str[i])
                     insert_tablelist = [str1,str2,str3,str4]
                     table_table.insert('',colindex,values=insert_tablelist)
                     colindex = colindex+1
                     continue
-                # else:
-                #     print("succeed")
-                #     return True
-        else:
             table_item = x.Table[top][a]
-            # print("查表为",table_item)
             if table_item:              # []或者['A->i']
                 table_item = x.Table[top][a][0]
                 table_item = table_item.split('->')[1]
@@ -570,7 +594,7 @@ def is_legal(input_text,x):
                     insert_tablelist = [str1,str2,str3,str4]
                     table_table.insert('',colindex,values=insert_tablelist)
                     # ######
-                else:       # 空字不压入
+                else:       # 空串不压栈
                     str1 = cur_stack_str
                     str2 = a
                     str3 = input_str[i+1:]
@@ -584,10 +608,9 @@ def is_legal(input_text,x):
     str1 = cur_stack_str
     str2 = a
     str3 = input_str[i+1:]
-    str4 = "匹配，分析成功！"
+    str4 = "匹配成功"
     insert_tablelist = [str1,str2,str3,str4]
     table_table.insert('',colindex,values=insert_tablelist)
-    print("成功！！！")
 
 # "生成table表"的按键函数
 def btn6(x):
@@ -622,7 +645,12 @@ def btn6(x):
         table_table.insert('',i,text=key,values=column_tup)
         i = i+1
            
-
+def show_work(x):
+    string=""
+    for item in x.work_process:
+        string+=item+'\n'
+    tkinter.messagebox.showinfo('工作过程',string)
+    
 # gui界面
 def GUI():
     Tset = []
@@ -639,12 +667,14 @@ def GUI():
     root.title("LL(1)分析器")
     root.geometry('600x530')
     root.resizable(0, 0)  # 禁止调整窗口尺寸
+    
     #菜单栏及菜单    
     menubar = tkinter.Menu(root)
     advancedMenu = tkinter.Menu(menubar, tearoff=0)
     menubar.add_cascade(label='高级', menu=advancedMenu)
     advancedMenu.add_command(label='关于', command=show_info)
     advancedMenu.add_command(label='退出', command=root.quit)
+    advancedMenu.add_command(label='查看工作过程', command=lambda:show_work(x))
     
     # 词法文件框
     LB_txt1 = tkinter.Listbox(root, height=18, width=23, bd=3)
@@ -666,15 +696,8 @@ def GUI():
     LB_follow = tkinter.Listbox(root, bd=2.5, height=12, width=26)
     LB_follow.insert(0, "FOLLOW集:")
     
-    '''
-    #输入框说明
-    input_text_info=tkinter.Text(root)
-    input_text_info.insert('end','请在此输入需要匹配的串')
-    '''
-    
     # 输入框
     input_text = tkinter.Entry(root, bd=3, width=54)
-    input_text.insert('end','请在此输入需要匹配的串')
     
     # btn width 85, height 35
     Btn_0 = tkinter.Button(root, command=lambda: btn0(LB_txt1, x), text="消除无用及\n有害规则", activebackground="blue", activeforeground="white", bd=4, width=10,height=2)
@@ -683,11 +706,10 @@ def GUI():
     Btn_3 = tkinter.Button(root, command=lambda: btn3(LB_txt3, x), text="消除左公因子", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
     Btn_4 = tkinter.Button(root, command=lambda: btn4(LB_first,x),text="生成first集", activebackground="blue", activeforeground="white", bd=4, width=10, height=2)
     Btn_5 = tkinter.Button(root, command=lambda: btn5(LB_follow,x),text="生成follow集", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
-    Btn_6 = tkinter.Button(root, command=lambda: btn6(x), text="生成Table表", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
-    Btn_7 = tkinter.Button(root, command=lambda: is_legal(input_text,x),text="判定栈情况", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
-
+    Btn_6 = tkinter.Button(root, command=lambda: btn6(x), text="生成LL(1)\n分析表", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
+    Btn_7 = tkinter.Button(root, command=lambda: is_legal(input_text,x),text="生成最左推导\n判断栈", activebackground="blue",activeforeground="white", bd=4, width=10,height=2)
+    
     # 绝对布局
-    #input_text_info.place(x=200,y=480)
     input_text.place(x=190, y=480,height=30)
     LB_txt1.place(x=10, y=0)
     LB_txt2.place(x=190, y=0)
@@ -704,9 +726,7 @@ def GUI():
     Btn_7.place(x=90, y=480)
     root.config(menu=menubar)
     root.mainloop()
-    print(x.Table)
-
-
+    
 if __name__ == "__main__":
     GUI()
 
