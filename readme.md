@@ -1,3 +1,11 @@
+该实验为华南师范大学编译原理课程课后实验三：LL(1)分析器
+
+实验代码均采用python编写，GUI采用tkinter，软件采用完整打包单exe，无需配置环境即可使用。
+
+时间紧促，遇到Bug请见谅，欢迎fork后修复改善代码。
+
+再说一次，仅供参考，不要直接抄，实验报告都给你了，更不应该直接抄，谢谢！
+
     数据结构 ：
     终结符（Tset），非终结符（NTset），文法开始符（S）， 产生式（Production）, 
     FIRST集（firstset），FOLLOW集（followset）, LL(1)分析表（Table）,工作过程表(work_process)
